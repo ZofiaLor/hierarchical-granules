@@ -1,0 +1,139 @@
+
+\documentclass[a4paper,12pt]{article}
+
+\usepackage{ifxetex}
+\usepackage{url}
+
+\usepackage{amsfonts}
+\usepackage{amsmath}
+
+
+\ifxetex  % XeLaTeX
+   \usepackage{fontspec}
+   \defaultfontfeatures{Mapping=tex--text}   % to support TeX conventions like dashes etc
+   \usepackage{xltxtra} % extra customisation for XeLaTeX
+   \setsansfont{Linux Biolinum O}
+   \setmainfont[Ligatures={Common,TeX}, Numbers={OldStyle}]{Linux Libertine O}
+\else  % LaTeX
+   \usepackage[T1]{fontenc}
+   \usepackage[utf8]{inputenc}
+   \usepackage[tt=false]{libertine} 
+\fi
+
+\usepackage[polish]{babel} 
+
+\usepackage[all]{nowidow}  % dla unikniecia wdow i sierot
+\usepackage{indentfirst}
+
+\frenchspacing
+
+ 
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+
+\newcommand{\term}[1]{\mathfrak{#1}}
+\newcommand{\zbior}[1]{\mathbb{#1}}  % set
+\newcommand{\macierz}[1]{{\boldsymbol{\mathrm{#1}}}}  
+\newcommand{\wektor}[1]{\macierz{\MakeLowercase{#1}}}
+\newcommand{\newItem}[2]{%
+  \expandafter\def\csname #1\endcsname {\MakeLowercase{#2}} %
+  \expandafter\def\csname n#1\endcsname {\MakeUppercase{#2}} %
+  \expandafter\def\csname z#1\endcsname {\zbior{\MakeUppercase{#2}}} %
+  \expandafter\def\csname t#1\endcsname {\term{\MakeLowercase{#2}}} %
+  \expandafter\def\csname m#1\endcsname {\macierz{\MakeUppercase{#2}}} %
+  \expandafter\def\csname w#1\endcsname {\wektor{#2}} %
+  }
+
+\newItem{X}{x}
+\newItem{Srodek}{v}
+\newItem{Rozmycie}{s}
+\newItem{Memb}{u}
+\newItem{A}{a}
+\newItem{C}{c}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{\sffamily\bfseries Rozmycie grupy wyznaczonej algorytmem FCM}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+Przyjmijmy, że mamy zbiór danych $\zX = \left\{\wX_1, \wX_2, \ldots, \wX_\nX\right\}$, gdzie $\nX$ to liczba danych.
+Każda dana $\wX_i$ jest zbudowana z deskryptorów (atrybutów, wymiarów) $\wX_i = \left[ \X_{i1}, \X_{i2}, \ldots, \X_{i\A}, \ldots, \X_{i\nA} \right]$, gdzie $\nA$ to liczba atrybutów. Zapiszmy dane w macierzy $\mX$ w ten sposób, że każdy wiersz to jedna dana $\wX_i$, a każda kolumna do wartości atrybutu $\A$-tego:
+\begin{align}
+\mX = 
+\left[
+\begin{matrix}
+\wX_1 \\
+\wX_2 \\
+\vdots \\
+\wX_\nX
+\end{matrix}
+\right] 
+=
+\left[
+\begin{matrix}
+\X_{11} & \X_{12} & \ldots & \X_{1\nA} \\
+\X_{21} & \X_{22} & \ldots & \X_{2\nA} \\
+\vdots  & \vdots  & \ddots & \vdots\\
+\X_{\nX 1} & \X_{\nX 2} & \ldots & \X_{\nX \nA} \\
+\end{matrix}
+\right]
+.
+\end{align}
+
+Algorytm FCM wypracowuje macierz $\mMemb$ przynależności danych do grup (klastrów). Macierz ma tyle wierszy, ile jest grup $\nC$, i tyle kolumn, ile jest danych: $\mMemb[\nC \times \nX]$:
+\begin{align}
+\mMemb = 
+\left[
+\begin{matrix}
+\Memb_{11} & \Memb_{12} & \ldots & \Memb_{1\nX} \\
+\Memb_{21} & \Memb_{22} & \ldots & \Memb_{2\nX} \\
+\vdots  & \vdots  & \ddots & \vdots\\
+\Memb_{\nC 1} & \Memb_{\nC 2} & \ldots & \Memb_{\nC \nX} \\
+\end{matrix}
+\right]
+.
+\end{align}
+Istotne jest, że suma każdej kolumny jest równa 1: 
+\begin{align}
+\forall_{\C \in \zC} \quad \sum_{\X=1}^{\nX} \Memb_{\C \X} = 1.
+\end{align}
+
+Gdy mamy wyznaczone przynależności każdej danej do grup, możemy wyznaczyć środki grup (klastrów). Znowu zastosujemy zapis wektorowy: środek grupy $\C$-tej zapiszemy jako $\wSrodek_\C = \left[\Srodek_{\C 1}, \Srodek_{\C 2}, \ldots, \Srodek_{\C\A}, \ldots, \Srodek_{\C \nA}\right]$. Możemy teraz zapisać środki wszystkich grup jako macierz $\mSrodek$ o $\nC$ wierszach (dla każdej grupy) i $\nA$ kolumnach (dla każdego atrybutu):
+\begin{align}
+\mSrodek =
+\left[
+\begin{matrix}
+\Srodek_{11} & \Srodek_{12} & \ldots & \Srodek_{1\nA} \\
+\Srodek_{21} & \Srodek_{22} & \ldots & \Srodek_{2\nA} \\
+\vdots  & \vdots  & \ddots & \vdots\\
+\Srodek_{\nC 1} & \Srodek_{\nC 2} & \ldots & \Srodek_{\nC \nA} \\
+\end{matrix}
+\right]
+.
+\end{align}
+Jak wyznaczyć jednak środki grup? To jest w sumie proste. Środek $\wSrodek_\C$ grupy $\C$-tej wyznaczymy jako średnią ważoną wszystkich danych $\wX_i$ z wartościami przynależności $\Memb_{\C i}$ jako wagami. Zapiszmy to wektorowo:
+\begin{align}
+\wSrodek_\C = 
+\frac
+{\sum_{i = 1}^{\nX} \Memb_{\C i}^m \wX_i}
+{\sum_{i = 1}^{\nX} \Memb_{\C i}^m}
+,
+\end{align}
+gdzie $m$ jest współczynnikiem, zwykle przyjmujemy, że $m = 2$ (to działa zaskakująco dobrze dla bardzo wielu danych, liczb grup itd).
+
+No to zostało nam wyznaczenie rozmycia grup $\wRozmycie_\C$ grupy $\C$-tej ze względu na każdy atrybut $\wRozmycie_\C = \left[\Rozmycie_{\C 1}, \Rozmycie_{\C 2}, \ldots, \Rozmycie_{\C\A}, \ldots, \Rozmycie_{\C\nA}\right]$. Rozmycie $\Rozmycie_{\C\A}$ grupy $\C$-tej dla atrybutu $\A$-tego wyznacza się jako wariancję:
+\begin{align}
+\Rozmycie_{\C\A} = 
+\sqrt{
+\frac
+{\sum_{i = 1}^{\nX} \Memb_{\C i}^m \left(\X_{i\A} - \Srodek_{\C\A}\right)^2}
+{\sum_{i = 1}^{\nX} \Memb_{\C i}^m}
+}
+.
+\end{align}
+\end{document} 
