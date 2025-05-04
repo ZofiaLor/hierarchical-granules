@@ -23,10 +23,52 @@ class DataEntry(object):
         self.name = name
         self.length = len(self.x)
         self.clusters_number = 0
+        self.granules_number = 100
 
         self.hierarchy_times = []
         self.fcm_times = []
         self.fcm_hierarchy_times = []
+
+        self.labels = []
+        self.labels_clusters = []
+        self.labels_fcm = []
+
+        self.fcm = None
+
+    def cluster_data(self, repeat: int):
+        self.hierarchy_times = []
+        for i in range(repeat):
+            cluster = AgglomerativeClustering(n_clusters=self.clusters_number, linkage='single')
+            start = time.time()
+            self.labels = cluster.fit_predict(self.data)
+            end = time.time()
+            self.hierarchy_times.append((end - start) * 1000)
+
+    def fcm_data(self, repeat: int):
+        self.labels_clusters = []
+        for i in range(repeat):
+            self.fcm = FCM(n_clusters=self.granules_number)
+            start = time.time()
+            self.fcm.fit(self.data)
+            self.labels_clusters = self.fcm.predict(self.data)
+            end = time.time()
+            self.fcm_times.append((end - start) * 1000)
+
+    def cluster_granules(self, repeat: int):
+        if self.fcm is None:
+            return
+        self.labels_fcm = []
+        for i in range(repeat):
+            clusterFcm = AgglomerativeClustering(n_clusters=self.clusters_number, linkage='single')
+            start = time.time()
+            self.labels_fcm = clusterFcm.fit_predict(self.fcm.cluster_centers_)
+            end = time.time()
+            self.fcm_hierarchy_times.append((end - start) * 1000)
+
+    def cluster_and_measure(self, repeat: int):
+        self.cluster_data(repeat)
+        self.fcm_data(repeat)
+        self.cluster_granules(repeat)
 
 
 fullData = {}
@@ -46,65 +88,28 @@ for folder in os.scandir("dane"):
                     fullData[file.name[:-5]].clusters_number = value
                     break
 
-plt.scatter(fullData["blobs1000"].x, fullData["blobs1000"].y)
-plt.show()
-# load the data and convert it to an appropriate format
-iris = load_iris()
-x = iris.data[:, 2].tolist()
-y = iris.data[:, 3].tolist()
-data = np.array(list(zip(x, y)))
-
-# perform hierarchical clustering and display the results
-cluster = AgglomerativeClustering(n_clusters=2, linkage='single')
-start = time.time()
-labels = cluster.fit_predict(data)
-end = time.time()
-print("Time of hierarchical clustering of non-granulated data: ", (end - start) * 1000, "ms")
-# plt.scatter(x, y, c=labels)
-# plt.show()
-
-# display a dendrogram visualizing the clustering
-dendro = linkage(data, method='single', metric='euclidean')
-# dendrogram(dendro)
-# plt.show()
-
-# perform fuzzy c-means clustering and display the results
-fcm = FCM(n_clusters=10)
-start = time.time()
-fcm.fit(data)
-labels_clusters = fcm.predict(data)
-end = time.time()
-print("Time of fuzzy c-means clustering of data: ", (end - start) * 1000, "ms")
-# plt.scatter(x, y, c=labels_clusters)
-# plt.scatter(fcm.cluster_centers_[:, 0], fcm.cluster_centers_[:, 1], c='red')
-# plt.show()
-
-# hierarchical clustering of the granules (centers)
-clusterFcm = AgglomerativeClustering(n_clusters=2, linkage='single')
-start = time.time()
-labelsFcm = cluster.fit_predict(fcm.cluster_centers_)
-end = time.time()
-print("Time of hierarchical clustering of granulated data: ", (end - start) * 1000, "ms")
-# plt.scatter(fcm.cluster_centers_[:, 0], fcm.cluster_centers_[:, 1], c=labelsFcm)
-# plt.show()
-
-# display a dendrogram visualizing the clustering of granules
-dendroFcm = linkage(fcm.cluster_centers_, method='single', metric='euclidean')
-# dendrogram(dendroFcm)
-# plt.show()
-
-figure, axis = plt.subplots(2, 3)
-axis[0, 0].scatter(x, y)
-axis[0, 0].set_title("Original data")
-axis[0, 1].scatter(x, y, c=labels)
-axis[0, 1].set_title("Hierarchical clustering of non-granulated data")
-dendrogram(dendro, ax=axis[0, 2])
-axis[0, 2].set_title("Dendrogram for non-granulated data")
-axis[1, 0].scatter(x, y, c=labels_clusters)
-axis[1, 0].scatter(fcm.cluster_centers_[:, 0], fcm.cluster_centers_[:, 1], c='red')
-axis[1, 0].set_title("FCM clusters")
-axis[1, 1].scatter(fcm.cluster_centers_[:, 0], fcm.cluster_centers_[:, 1], c=labelsFcm)
-axis[1, 1].set_title("Hierarchical clustering of granulated data")
-dendrogram(dendroFcm, ax=axis[1, 2])
-axis[1, 2].set_title("Dendrogram for granulated data")
-plt.show()
+user_input = ""
+while user_input != "exit":
+    user_input = input("Enter the name of the data file for which to perform the clustering (eg. 'blobs1000') or type "
+                       "'exit' to finish the program ")
+    if user_input in names:
+        fullData[user_input].cluster_and_measure(10)
+        print("Average time of hierarchical clustering of non-granulated data: ",
+              np.mean(fullData[user_input].hierarchy_times), "ms")
+        print("Average time of fuzzy c-means clustering of data: ",
+              np.mean(fullData[user_input].fcm_times), "ms")
+        print("Average time of hierarchical clustering of granulated data: ",
+              np.mean(fullData[user_input].fcm_hierarchy_times), "ms")
+        figure, axis = plt.subplots(2, 2)
+        axis[0, 0].scatter(fullData[user_input].x, fullData[user_input].y)
+        axis[0, 0].set_title("Original data")
+        axis[0, 1].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels)
+        axis[0, 1].set_title("Hierarchical clustering of non-granulated data")
+        axis[1, 0].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels_clusters)
+        axis[1, 0].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1], c='red')
+        axis[1, 0].set_title("FCM clusters")
+        axis[1, 1].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1], c=fullData[user_input].labels_fcm)
+        axis[1, 1].set_title("Hierarchical clustering of granulated data")
+        plt.show()
+    else:
+        print("A file by that name does not exist")
