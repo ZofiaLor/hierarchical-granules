@@ -1,12 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.datasets import load_iris
 from sklearn.cluster import AgglomerativeClustering
-from scipy.cluster.hierarchy import dendrogram, linkage
 from fuzzy_cmeans import FuzzyCMeans as FCM
 import time
-import seaborn as sns
-import random
+import math
 import os
 
 
@@ -34,6 +31,7 @@ class DataEntry(object):
         self.labels_fcm = []
 
         self.fcm = None
+        self.variances = []
 
     def cluster_data(self, repeat: int):
         self.hierarchy_times = []
@@ -43,6 +41,27 @@ class DataEntry(object):
             self.labels = cluster.fit_predict(self.data)
             end = time.time()
             self.hierarchy_times.append((end - start) * 1000)
+
+    def compute_variances(self):
+        if self.fcm is None:
+            return
+        self.variances = np.empty(shape=(self.granules_number, 2))
+        for c in range(self.granules_number):
+            for a in range(2):
+                numerator = sum((self.fcm.U_[i, c]**2)*((self.fcm.X_[i, a] - self.fcm.cluster_centers_[c, a])**2) for i in range(self.length))
+                denominator = sum(self.fcm.U_[i, c]**2 for i in range(self.length))
+                self.variances[c][a] = np.sqrt(numerator/denominator)
+
+    def plot_ellipses(self):
+        if self.fcm is None:
+            return
+        t = np.linspace(0, 2*math.pi)
+        colors = ['slateblue', 'limegreen', 'dodgerblue', 'mediumorchid']
+        plt.scatter(self.x, self.y, c='lightgray')
+        for i in range(self.granules_number):
+            plt.plot(self.fcm.cluster_centers_[i, 0] + 2*self.variances[i][0]*np.cos(t), self.fcm.cluster_centers_[i, 1] + 2*self.variances[i][1]*np.sin(t), color=colors[self.labels_fcm[i]])
+        plt.scatter(self.fcm.cluster_centers_[:, 0], self.fcm.cluster_centers_[:, 1], c='deeppink')
+        plt.show()
 
     def fcm_data(self, repeat: int):
         self.labels_clusters = []
@@ -89,6 +108,29 @@ for folder in os.scandir("dane"):
                     break
 
 user_input = ""
+
+
+def plot_results():
+    figure, axis = plt.subplots(2, 2)
+    axis[0, 0].scatter(fullData[user_input].x, fullData[user_input].y)
+    axis[0, 0].set_title("Original data")
+    axis[0, 1].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels)
+    axis[0, 1].set_title("Hierarchical clustering of non-granulated data")
+    axis[1, 0].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels_clusters)
+    axis[1, 0].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1],
+                       c='deeppink')
+    axis[1, 0].set_title("FCM clusters")
+    axis[1, 1].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1],
+                       c=fullData[user_input].labels_fcm)
+    axis[1, 1].set_title("Hierarchical clustering of granulated data")
+    plt.show()
+
+
+def plot_variance():
+    fullData[user_input].compute_variances()
+    fullData[user_input].plot_ellipses()
+
+
 while user_input != "exit":
     user_input = input("Enter the name of the data file for which to perform the clustering (eg. 'blobs1000') or type "
                        "'exit' to finish the program ")
@@ -100,16 +142,7 @@ while user_input != "exit":
               np.mean(fullData[user_input].fcm_times), "ms")
         print("Average time of hierarchical clustering of granulated data: ",
               np.mean(fullData[user_input].fcm_hierarchy_times), "ms")
-        figure, axis = plt.subplots(2, 2)
-        axis[0, 0].scatter(fullData[user_input].x, fullData[user_input].y)
-        axis[0, 0].set_title("Original data")
-        axis[0, 1].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels)
-        axis[0, 1].set_title("Hierarchical clustering of non-granulated data")
-        axis[1, 0].scatter(fullData[user_input].x, fullData[user_input].y, c=fullData[user_input].labels_clusters)
-        axis[1, 0].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1], c='red')
-        axis[1, 0].set_title("FCM clusters")
-        axis[1, 1].scatter(fullData[user_input].fcm.cluster_centers_[:, 0], fullData[user_input].fcm.cluster_centers_[:, 1], c=fullData[user_input].labels_fcm)
-        axis[1, 1].set_title("Hierarchical clustering of granulated data")
-        plt.show()
+        plot_results()
+        plot_variance()
     else:
         print("A file by that name does not exist")
